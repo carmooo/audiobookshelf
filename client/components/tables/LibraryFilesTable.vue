@@ -6,6 +6,7 @@
         <span class="text-sm font-mono">{{ files.length }}</span>
       </div>
       <div class="grow" />
+      <ui-btn v-if="selectedFileInos.length" small color="bg-success" class="mr-2" @click.stop="downloadSelectedFiles">{{ $strings.LabelDownload }} ({{ selectedFileInos.length }})</ui-btn>
       <ui-btn v-if="userIsAdmin" small :color="showFullPath ? 'bg-gray-600' : 'bg-primary'" class="mr-2 hidden md:block" @click.stop="toggleFullPath">{{ $strings.ButtonFullPath }}</ui-btn>
       <div class="cursor-pointer h-10 w-10 rounded-full hover:bg-black-400 flex justify-center items-center duration-500" :class="showFiles ? 'transform rotate-180' : ''">
         <span class="material-symbols text-4xl">&#xe313;</span>
@@ -15,13 +16,16 @@
       <div class="w-full" v-if="showFiles">
         <table class="text-sm tracksTable">
           <tr>
+            <th v-if="userCanDownload" class="text-center w-12 min-w-12">
+              <ui-checkbox :value="allFilesSelected" :partial="!!selectedFileInos.length && !allFilesSelected" small checkbox-bg="primary" border-color="gray-600" :aria-label="$strings.LabelSelectAll" class="flex justify-center" @input="toggleSelectAll" />
+            </th>
             <th class="text-left px-4">{{ $strings.LabelPath }}</th>
             <th class="text-left w-24 min-w-24">{{ $strings.LabelSize }}</th>
             <th class="text-left px-4 w-24">{{ $strings.LabelType }}</th>
             <th v-if="userCanDelete || userCanDownload || (userIsAdmin && audioFiles.length && !inModal)" class="text-center w-16"></th>
           </tr>
           <template v-for="file in filesWithAudioFile">
-            <tables-library-files-table-row :key="file.path" :libraryItemId="libraryItemId" :showFullPath="showFullPath" :file="file" :inModal="inModal" @showMore="showMore" />
+            <tables-library-files-table-row :key="file.path" :libraryItemId="libraryItemId" :showFullPath="showFullPath" :file="file" :inModal="inModal" :selected="selectedFileInos.includes(file.ino)" @selectedChange="toggleFileSelected" @showMore="showMore" />
           </template>
         </table>
       </div>
@@ -46,7 +50,8 @@ export default {
       showFiles: false,
       showFullPath: false,
       showAudioFileDataModal: false,
-      selectedAudioFile: null
+      selectedAudioFile: null,
+      selectedFileInos: []
     }
   },
   computed: {
@@ -78,9 +83,31 @@ export default {
         }
         return file
       })
+    },
+    allFilesSelected() {
+      return !!this.files.length && this.selectedFileInos.length === this.files.length
+    },
+    userToken() {
+      return this.$store.getters['user/getToken']
     }
   },
   methods: {
+    toggleFileSelected(file, selected) {
+      if (selected) {
+        if (!this.selectedFileInos.includes(file.ino)) this.selectedFileInos.push(file.ino)
+      } else {
+        this.selectedFileInos = this.selectedFileInos.filter((ino) => ino !== file.ino)
+      }
+    },
+    toggleSelectAll(selected) {
+      this.selectedFileInos = selected ? this.files.map((file) => file.ino) : []
+    },
+    downloadSelectedFiles() {
+      // Selection may hold inos of files removed since a re-scan
+      const inos = this.selectedFileInos.filter((ino) => this.files.some((file) => file.ino === ino))
+      this.$downloadFile(`${process.env.serverUrl}/api/items/${this.libraryItemId}/download?token=${this.userToken}&inos=${inos.join(',')}`)
+      this.selectedFileInos = []
+    },
     toggleFullPath() {
       this.showFullPath = !this.showFullPath
       localStorage.setItem('showFullPath', this.showFullPath ? 1 : 0)

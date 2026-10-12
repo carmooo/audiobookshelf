@@ -1,5 +1,8 @@
 <template>
   <tr>
+    <td v-if="userCanDownload" class="text-center w-12 min-w-12">
+      <ui-checkbox :value="selected" small checkbox-bg="primary" border-color="gray-600" :aria-label="file.metadata.filename" class="flex justify-center" @input="$emit('selectedChange', file, $event)" />
+    </td>
     <td class="px-4">
       {{ showFullPath ? file.metadata.path : file.metadata.relPath }}
     </td>
@@ -26,7 +29,8 @@ export default {
       type: Object,
       default: () => {}
     },
-    inModal: Boolean
+    inModal: Boolean,
+    selected: Boolean
   },
   data() {
     return {}
